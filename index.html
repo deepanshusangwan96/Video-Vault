@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VideoVault</title>
+<style>
+:root{
+  --bg:#f5f5f8;
+  --surface:#ffffff;
+  --card:#f0f0f5;
+  --card-hover:#e8e8f0;
+  --accent:#7c5cfc;
+  --accent2:#e040fb;
+  --border:#e0e0ea;
+  --text:#1a1a2e;
+  --muted:#888899;
+  --danger:#f04060;
+  --success:#40c080;
+  --radius:12px;
+  --sidebar:240px;
+  --ambient: 120,90,252;
+}
+[data-theme="dark"]{
+  --bg:#0a0a0f;
+  --surface:#13131a;
+  --card:#1c1c26;
+  --card-hover:#22222f;
+  --border:#2a2a3a;
+  --text:#e8e8f0;
+  --muted:#6b6b80;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh;overflow:hidden;transition:background 1.5s ease;}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(var(--ambient),0.12) 0%,transparent 70%);pointer-events:none;transition:all 1.5s ease;z-index:0;}
+
+/* LAYOUT */
+.app{display:flex;height:100vh;position:relative;z-index:1;}
+
+/* SIDEBAR */
+.sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;z-index:10;}
+.sidebar-header{padding:20px 16px 12px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);}
+.logo{font-size:18px;font-weight:700;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.sidebar-section{padding:8px 0;}
+.sidebar-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:8px 16px 4px;}
+.folder-item{display:flex;align-items:center;gap:8px;padding:7px 16px;cursor:pointer;border-radius:0;transition:background 0.15s;position:relative;font-size:13px;}
+.folder-item:hover{background:rgba(0,0,0,0.04);}
+[data-theme="dark"] .folder-item:hover{background:rgba(255,255,255,0.05);}
+.folder-item.active{background:rgba(124,92,252,0.12);color:var(--accent);}
+.folder-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--accent);}
+.folder-icon{font-size:15px;flex-shrink:0;}
+.folder-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.folder-count{font-size:10px;color:var(--muted);background:var(--card);padding:1px 6px;border-radius:10px;}
+.folder-actions{display:none;gap:3px;}
+.folder-item:hover .folder-actions{display:flex;}
+.icon-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:3px;border-radius:4px;font-size:12px;line-height:1;transition:color 0.15s,background 0.15s;}
+.icon-btn:hover{color:var(--text);background:rgba(0,0,0,0.07);}
+[data-theme="dark"] .icon-btn:hover{background:rgba(255,255,255,0.1);}
+.icon-btn.danger:hover{color:var(--danger);}
+.new-folder-btn{display:flex;align-items:center;gap:8px;padding:7px 16px;cursor:pointer;color:var(--muted);font-size:13px;transition:color 0.15s;}
+.new-folder-btn:hover{color:var(--accent);}
+.sidebar-footer{margin-top:auto;padding:12px 16px;border-top:1px solid var(--border);}
+.storage-bar{height:3px;background:var(--border);border-radius:3px;margin:6px 0 4px;}
+.storage-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width 0.3s;}
+.storage-text{font-size:10px;color:var(--muted);}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.topbar{padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);background:rgba(19,19,26,0.8);backdrop-filter:blur(10px);position:sticky;top:0;z-index:5;}
+.search-wrap{flex:1;position:relative;max-width:400px;}
+.search-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:8px 16px 8px 36px;color:var(--text);font-size:13px;outline:none;transition:border 0.2s;}
+.search-input::placeholder{color:var(--muted);}
+.search-input:focus{border-color:var(--accent);}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;}
+.ai-search-badge{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;padding:2px 6px;border-radius:10px;font-weight:600;}
+.topbar-actions{display:flex;gap:8px;align-items:center;margin-left:auto;}
+.btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-size:13px;font-weight:500;transition:all 0.15s;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#8f70ff;}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{color:var(--text);border-color:var(--text);}
+.btn-icon{padding:8px;aspect-ratio:1;}
+.sort-select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:8px;font-size:12px;outline:none;cursor:pointer;}
+
+/* CONTENT */
+.content{flex:1;overflow-y:auto;padding:20px;}
+.content::-webkit-scrollbar{width:4px;}
+.content::-webkit-scrollbar-track{background:transparent;}
+.content::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.section-title{font-size:18px;font-weight:600;}
+.view-toggle{display:flex;gap:4px;}
+.view-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;}
+.view-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* VIDEO GRID */
+.video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;}
+.video-grid.list{grid-template-columns:1fr;}
+
+.video-card{background:var(--card);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s,background 0.2s;border:1px solid var(--border);position:relative;group;}
+.video-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,0.4);background:var(--card-hover);border-color:rgba(124,92,252,0.3);}
+.video-card.dragging{opacity:0.4;transform:scale(0.95);}
+.video-card.drag-over{border:2px dashed var(--accent);background:rgba(124,92,252,0.1);}
+
+.thumb-wrap{position:relative;aspect-ratio:16/9;overflow:hidden;background:#000;}
+.thumb-wrap video{width:100%;height:100%;object-fit:cover;}
+.thumb-blur{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(20px);transform:scale(1.1);opacity:0;transition:opacity 0.3s;}
+.video-card:hover .thumb-blur{opacity:0.3;}
+.thumb-canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+.play-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0);transition:background 0.2s;}
+.video-card:hover .play-overlay{background:rgba(0,0,0,0.3);}
+.play-btn{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.9);display:flex;align-items:center;justify-content:center;opacity:0;transform:scale(0.8);transition:all 0.2s;font-size:14px;color:#000;}
+.video-card:hover .play-btn{opacity:1;transform:scale(1);}
+.duration-badge{position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.8);color:#fff;font-size:10px;padding:2px 5px;border-radius:4px;font-weight:500;}
+.video-menu-btn{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:6px;background:rgba(0,0,0,0.7);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity 0.2s;font-size:12px;}
+.video-card:hover .video-menu-btn{opacity:1;}
+
+.card-info{padding:10px 12px;}
+.card-title{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;}
+.card-meta{font-size:11px;color:var(--muted);display:flex;gap:8px;}
+.card-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;}
+.tag{font-size:9px;padding:2px 6px;border-radius:10px;font-weight:500;}
+.tag-ai{background:rgba(224,64,251,0.15);color:#e040fb;}
+.tag-mood{background:rgba(64,192,128,0.15);color:#40c080;}
+
+/* LIST VIEW */
+.video-grid.list .video-card{display:flex;align-items:center;gap:14px;}
+.video-grid.list .thumb-wrap{width:120px;flex-shrink:0;aspect-ratio:16/9;}
+.video-grid.list .card-info{flex:1;padding:8px 0;}
+
+/* EMPTY STATE */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:80px 20px;text-align:center;gap:12px;}
+.empty-icon{font-size:48px;opacity:0.3;}
+.empty-title{font-size:16px;font-weight:500;color:var(--muted);}
+.empty-sub{font-size:13px;color:var(--muted);opacity:0.7;}
+
+/* MODALS */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.overlay.hidden{display:none;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:480px;max-width:90vw;max-height:85vh;overflow-y:auto;position:relative;}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:16px;}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;}
+.modal-close:hover{color:var(--text);}
+.input-group{margin-bottom:14px;}
+.input-label{font-size:12px;color:var(--muted);margin-bottom:6px;display:block;}
+.input-field{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;}
+.input-field:focus{border-color:var(--accent);}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;}
+
+/* VIDEO DETAIL MODAL */
+.video-detail-modal{width:700px;}
+.video-player-wrap{background:#000;border-radius:8px;overflow:hidden;aspect-ratio:16/9;margin-bottom:16px;position:relative;}
+.video-player-wrap video{width:100%;height:100%;}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+.detail-card{background:var(--card);border-radius:8px;padding:12px;}
+.detail-card-title{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
+.ai-section{background:var(--card);border-radius:8px;padding:14px;border:1px solid rgba(124,92,252,0.3);}
+.ai-loading{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:13px;}
+.ai-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.8)}}
+.ai-result-tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.ai-mood-bar{height:4px;border-radius:4px;margin-top:8px;}
+
+/* CONTEXT MENU */
+.ctx-menu{position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;z-index:200;min-width:160px;box-shadow:0 8px 32px rgba(0,0,0,0.5);}
+.ctx-menu.hidden{display:none;}
+.ctx-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;transition:background 0.1s;}
+.ctx-item:hover{background:rgba(255,255,255,0.07);}
+.ctx-item.danger:hover{background:rgba(240,64,96,0.1);color:var(--danger);}
+.ctx-divider{height:1px;background:var(--border);margin:4px 0;}
+
+/* TOAST */
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px;}
+.toast{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 16px;font-size:13px;display:flex;align-items:center;gap:8px;animation:slideIn 0.3s ease;min-width:220px;}
+.toast.success{border-color:rgba(64,192,128,0.4);}
+.toast.error{border-color:rgba(240,64,96,0.4);}
+.toast.info{border-color:rgba(124,92,252,0.4);}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOut{to{transform:translateX(120%);opacity:0}}
+
+/* SHORTCUTS HELP */
+.shortcuts-modal .shortcut-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.kbd{background:var(--card);border:1px solid var(--border);border-radius:5px;padding:2px 8px;font-size:11px;font-family:monospace;color:var(--muted);}
+
+/* TRASH TOGGLE */
+.trash-mode{background:rgba(240,64,96,0.1);border-color:rgba(240,64,96,0.3);}
+
+/* SPEED CONTROL */
+.speed-badge{position:absolute;top:6px;left:6px;background:rgba(124,92,252,0.9);color:#fff;font-size:9px;padding:2px 6px;border-radius:4px;font-weight:700;}
+
+/* UPLOAD ZONE */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:40px;text-align:center;transition:all 0.2s;cursor:pointer;}
+.upload-zone:hover,.upload-zone.drag-active{border-color:var(--accent);background:rgba(124,92,252,0.05);}
+.upload-zone-icon{font-size:32px;margin-bottom:12px;opacity:0.5;}
+.progress-bar{height:3px;background:var(--border);border-radius:3px;margin-top:8px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--accent);border-radius:3px;width:0%;transition:width 0.3s;}
+
+/* FOLDER DROP HIGHLIGHT */
+.folder-item.drop-ready{background:rgba(124,92,252,0.2)!important;color:var(--accent);}
+
+/* ANIMATIONS */
+.fade-in{animation:fadeIn 0.3s ease;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">📼 VideoVault</span>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Library</div>
+      <div class="folder-item active" data-folder="all" onclick="selectFolder('all')">
+        <span class="folder-icon">🏠</span>
+        <span class="folder-name">All Videos</span>
+        <span class="folder-count" id="count-all">0</span>
+      </div>
+      <div class="folder-item" data-folder="recent" onclick="selectFolder('recent')">
+        <span class="folder-icon">🕐</span>
+        <span class="folder-name">Recent</span>
+      </div>
+      <div class="folder-item" data-folder="trash" onclick="selectFolder('trash')">
+        <span class="folder-icon">🗑️</span>
+        <span class="folder-name">Trash</span>
+        <span class="folder-count" id="count-trash">0</span>
+      </div>
+    </div>
+    <div class="sidebar-section" id="folders-section">
+      <div class="sidebar-label">Folders</div>
+      <div id="folder-list"></div>
+      <div class="new-folder-btn" onclick="showNewFolderModal()">
+        <span>＋</span> New Folder
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <div class="storage-text">Storage Used</div>
+      <div class="storage-bar"><div class="storage-fill" id="storage-fill" style="width:0%"></div></div>
+      <div class="storage-text" id="storage-text">0 MB / ∞ GB</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="search-input" placeholder="Search videos or ask AI..." type="text">
+        <span class="ai-search-badge">AI</span>
+      </div>
+      <div class="topbar-actions">
+        <select class="sort-select" id="sort-select" onchange="renderVideos()">
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="name">A-Z</option>
+          <option value="size">Size</option>
+        </select>
+        <button class="btn btn-ghost btn-icon" onclick="toggleTheme()" id="theme-btn" title="Toggle Theme">🌙</button>
+        <button class="btn btn-ghost btn-icon" onclick="showShortcuts()" title="Keyboard Shortcuts (?)">⌨️</button>
+        <button class="btn btn-primary" onclick="triggerUpload()">📤 Upload</button>
+        <input type="file" id="file-input" accept="video/*" multiple style="display:none" onchange="handleFileSelect(event)">
+      </div>
+    </div>
+
+    <div class="content" id="main-content">
+      <div class="section-header">
+        <span class="section-title" id="section-title">All Videos</span>
+        <div class="view-toggle">
+          <button class="view-btn active" id="grid-btn" onclick="setView('grid')">⊞</button>
+          <button class="view-btn" id="list-btn" onclick="setView('list')">☰</button>
+        </div>
+      </div>
+      <div class="video-grid fade-in" id="video-grid"></div>
+    </div>
+  </main>
+</div>
+
+<!-- CONTEXT MENU -->
+<div class="ctx-menu hidden" id="ctx-menu">
+  <div class="ctx-item" onclick="ctxPlay()">▶ Play</div>
+  <div class="ctx-item" onclick="ctxRename()">✏️ Rename</div>
+  <div class="ctx-item" onclick="ctxAIAnalyze()">🤖 AI Analyze</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item" id="ctx-move-btn" onclick="ctxMove()">📁 Move to Folder</div>
+  <div class="ctx-divider"></div>
+  <div class="ctx-item danger" onclick="ctxTrash()">🗑️ Move to Trash</div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toasts"></div>
+
+<!-- NEW FOLDER MODAL -->
+<div class="overlay hidden" id="new-folder-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('new-folder-overlay')">✕</button>
+    <div class="modal-title">✨ New Folder</div>
+    <div class="input-group">
+      <label class="input-label">Folder Name</label>
+      <input class="input-field" id="new-folder-input" placeholder="My Videos..." onkeydown="if(event.key==='Enter')createFolder()">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Icon (emoji)</label>
+      <input class="input-field" id="new-folder-icon" placeholder="📁" maxlength="4" value="📁">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('new-folder-overlay')">Cancel</button>
+      <button class="btn btn-primary" onclick="createFolder()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- RENAME FOLDER MODAL -->
+<div class="overlay hidden" id="rename-folder-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('rename-folder-overlay')">✕</button>
+    <div class="modal-title">✏️ Rename Folder</div>
+    <div class="input-group">
+      <label class="input-label">New Name</label>
+      <input class="input-field" id="rename-folder-input" onkeydown="if(event.key==='Enter')renameFolder()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('rename-folder-overlay')">Cancel</button>
+      <button class="btn btn-primary" onclick="renameFolder()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- RENAME VIDEO MODAL -->
+<div class="overlay hidden" id="rename-video-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('rename-video-overlay')">✕</button>
+    <div class="modal-title">✏️ Rename Video</div>
+    <div class="input-group">
+      <label class="input-label">New Name</label>
+      <input class="input-field" id="rename-video-input" onkeydown="if(event.key==='Enter')renameVideo()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('rename-video-overlay')">Cancel</button>
+      <button class="btn btn-primary" onclick="renameVideo()">Rename</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOVE VIDEO MODAL -->
+<div class="overlay hidden" id="move-video-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('move-video-overlay')">✕</button>
+    <div class="modal-title">📁 Move Video</div>
+    <div class="input-group">
+      <label class="input-label">Select Destination Folder</label>
+      <select class="input-field" id="move-folder-select"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('move-video-overlay')">Cancel</button>
+      <button class="btn btn-primary" onclick="moveVideo()">Move</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIDEO DETAIL MODAL -->
+<div class="overlay hidden" id="video-detail-overlay">
+  <div class="modal video-detail-modal">
+    <button class="modal-close" onclick="closeVideoDetail()">✕</button>
+    <div class="modal-title" id="detail-title">Video Title</div>
+    <div class="video-player-wrap">
+      <video id="detail-player" controls></video>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <label style="font-size:12px;color:var(--muted);">Playback Speed:</label>
+      <div style="display:flex;gap:4px;">
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px;" onclick="setSpeed(0.5)">0.5x</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px;" onclick="setSpeed(1)">1x</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px;" onclick="setSpeed(1.5)">1.5x</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px;" onclick="setSpeed(2)">2x</button>
+        <button class="btn btn-ghost" style="padding:4px 8px;font-size:11px;" onclick="setSpeed(3)">3x</button>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div class="detail-card">
+        <div class="detail-card-title">Info</div>
+        <div style="font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px;" id="detail-info"></div>
+      </div>
+      <div class="detail-card">
+        <div class="detail-card-title">AI Tags</div>
+        <div class="ai-result-tags" id="detail-tags"></div>
+      </div>
+    </div>
+    <div class="ai-section" id="ai-section">
+      <div class="detail-card-title" style="color:var(--accent);">🤖 AI Analysis</div>
+      <div id="ai-analysis-content"><div class="ai-loading"><div class="ai-dot"></div> Analyzing video...</div></div>
+      <div id="ai-mood-section" style="margin-top:10px;display:none;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Detected Mood</div>
+        <div class="ai-mood-bar" id="ai-mood-bar"></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;" id="ai-mood-label"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SHORTCUTS MODAL -->
+<div class="overlay hidden" id="shortcuts-overlay">
+  <div class="modal shortcuts-modal">
+    <button class="modal-close" onclick="closeModal('shortcuts-overlay')">✕</button>
+    <div class="modal-title">⌨️ Keyboard Shortcuts</div>
+    <div class="shortcut-row"><span>Upload video</span><span><span class="kbd">U</span></span></div>
+    <div class="shortcut-row"><span>New folder</span><span><span class="kbd">N</span></span></div>
+    <div class="shortcut-row"><span>Search / AI search</span><span><span class="kbd">/</span></span></div>
+    <div class="shortcut-row"><span>Toggle grid/list</span><span><span class="kbd">V</span></span></div>
+    <div class="shortcut-row"><span>Close modal</span><span><span class="kbd">Esc</span></span></div>
+    <div class="shortcut-row"><span>Delete selected</span><span><span class="kbd">Del</span></span></div>
+    <div class="shortcut-row"><span>Speed up playback</span><span><span class="kbd">]</span></span></div>
+    <div class="shortcut-row"><span>Slow down playback</span><span><span class="kbd">[</span></span></div>
+    <div class="shortcut-row"><span>This help</span><span><span class="kbd">?</span></span></div>
+  </div>
+</div>
+
+<!-- AI SEARCH RESULT MODAL -->
+<div class="overlay hidden" id="ai-search-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('ai-search-overlay')">✕</button>
+    <div class="modal-title">🤖 AI Search Result</div>
+    <div id="ai-search-result" style="font-size:13px;line-height:1.7;color:var(--muted);"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// DATABASE
+// ═══════════════════════════════════════════════════════════
+let db;
+const DB_NAME = 'VideoVaultDB';
+const DB_VERSION = 2;
+
+function initDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains('videos')) {
+        const vs = d.createObjectStore('videos', { keyPath: 'id' });
+        vs.createIndex('folderId', 'folderId');
+      }
+      if (!d.objectStoreNames.contains('folders')) {
+        d.createObjectStore('folders', { keyPath: 'id' });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(); };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function dbOp(store, mode, fn) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, mode);
+    const s = tx.objectStore(store);
+    const req = fn(s);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function getAll(store) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readonly');
+    const req = tx.objectStore(store).getAll();
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function putItem(store, item) { return dbOp(store, 'readwrite', s => s.put(item)); }
+function deleteItem(store, id) { return dbOp(store, 'readwrite', s => s.delete(id)); }
+function getItem(store, id) { return dbOp(store, 'readonly', s => s.get(id)); }
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let state = {
+  folders: [],
+  videos: [],
+  currentFolder: 'all',
+  searchQuery: '',
+  view: 'grid',
+  selectedVideo: null,
+  renamingFolder: null,
+  ctxVideoId: null,
+  dragVideoId: null,
+};
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+async function init() {
+  await initDB();
+  state.folders = await getAll('folders');
+  state.videos = await getAll('videos');
+  renderSidebar();
+  renderVideos();
+  updateStorage();
+  toast('Welcome to VideoVault! 🎬', 'info');
+}
+
+// ═══════════════════════════════════════════════════════════
+// FOLDERS
+// ═══════════════════════════════════════════════════════════
+function renderSidebar() {
+  const list = document.getElementById('folder-list');
+  list.innerHTML = '';
+  state.folders.forEach(f => {
+    const div = document.createElement('div');
+    div.className = `folder-item${state.currentFolder === f.id ? ' active' : ''}`;
+    div.dataset.folder = f.id;
+    div.ondragover = e => { e.preventDefault(); div.classList.add('drop-ready'); };
+    div.ondragleave = () => div.classList.remove('drop-ready');
+    div.ondrop = e => { e.preventDefault(); div.classList.remove('drop-ready'); dropVideoOnFolder(f.id); };
+    div.innerHTML = `
+      <span class="folder-icon">${f.icon||'📁'}</span>
+      <span class="folder-name">${f.name}</span>
+      <span class="folder-count">${state.videos.filter(v=>v.folderId===f.id&&!v.trashed).length}</span>
+      <div class="folder-actions">
+        <button class="icon-btn" onclick="event.stopPropagation();showRenameFolderModal('${f.id}')" title="Rename">✏️</button>
+        <button class="icon-btn danger" onclick="event.stopPropagation();deleteFolder('${f.id}')" title="Delete">🗑️</button>
+      </div>
+    `;
+    div.onclick = () => selectFolder(f.id);
+    list.appendChild(div);
+  });
+
+  // update counts
+  const allCount = state.videos.filter(v=>!v.trashed).length;
+  const trashCount = state.videos.filter(v=>v.trashed).length;
+  document.getElementById('count-all').textContent = allCount;
+  document.getElementById('count-trash').textContent = trashCount;
+}
+
+function selectFolder(id) {
+  state.currentFolder = id;
+  document.querySelectorAll('.folder-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.folder === id);
+  });
+  const titles = { all: 'All Videos', recent: 'Recent', trash: '🗑️ Trash' };
+  document.getElementById('section-title').textContent =
+    titles[id] || state.folders.find(f=>f.id===id)?.name || id;
+  renderVideos();
+}
+
+async function showNewFolderModal() {
+  document.getElementById('new-folder-input').value = '';
+  document.getElementById('new-folder-icon').value = '📁';
+  openModal('new-folder-overlay');
+  setTimeout(() => document.getElementById('new-folder-input').focus(), 100);
+}
+
+async function createFolder() {
+  const name = document.getElementById('new-folder-input').value.trim();
+  const icon = document.getElementById('new-folder-icon').value.trim() || '📁';
+  if (!name) return;
+  const folder = { id: 'f_' + Date.now(), name, icon, createdAt: Date.now() };
+  await putItem('folders', folder);
+  state.folders.push(folder);
+  renderSidebar();
+  closeModal('new-folder-overlay');
+  toast(`Folder "${name}" created!`, 'success');
+}
+
+function showRenameFolderModal(id) {
+  state.renamingFolder = id;
+  const f = state.folders.find(f=>f.id===id);
+  document.getElementById('rename-folder-input').value = f.name;
+  openModal('rename-folder-overlay');
+  setTimeout(() => document.getElementById('rename-folder-input').focus(), 100);
+}
+
+async function renameFolder() {
+  const name = document.getElementById('rename-folder-input').value.trim();
+  if (!name) return;
+  const f = state.folders.find(f=>f.id===state.renamingFolder);
+  f.name = name;
+  await putItem('folders', f);
+  renderSidebar();
+  closeModal('rename-folder-overlay');
+  toast('Folder renamed!', 'success');
+}
+
+async function deleteFolder(id) {
+  if (!confirm('Delete this folder? Videos inside will go to All Videos.')) return;
+  // move videos to no folder
+  for (const v of state.videos.filter(v=>v.folderId===id)) {
+    v.folderId = null;
+    await putItem('videos', v);
+  }
+  await deleteItem('folders', id);
+  state.folders = state.folders.filter(f=>f.id!==id);
+  if (state.currentFolder === id) selectFolder('all');
+  renderSidebar();
+  toast('Folder deleted.', 'info');
+}
+
+// ═══════════════════════════════════════════════════════════
+// VIDEO UPLOAD
+// ═══════════════════════════════════════════════════════════
+function triggerUpload() {
+  document.getElementById('file-input').click();
+}
+
+async function handleFileSelect(e) {
+  const files = Array.from(e.target.files);
+  for (const file of files) {
+    await processVideoFile(file);
+  }
+  e.target.value = '';
+}
+
+async function processVideoFile(file) {
+  toast(`Uploading ${file.name}...`, 'info');
+  const id = 'v_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+  const blob = file;
+  const url = URL.createObjectURL(blob);
+
+  // generate thumbnail
+  const thumb = await generateThumbnail(url, file.type);
+  const dominantColor = await getDominantColor(thumb);
+
+  const video = {
+    id, name: file.name.replace(/\.[^.]+$/, ''),
+    type: file.type, size: file.size,
+    folderId: state.currentFolder !== 'all' && state.currentFolder !== 'recent' && state.currentFolder !== 'trash'
+      ? state.currentFolder : null,
+    createdAt: Date.now(), trashed: false,
+    thumbnail: thumb, dominantColor,
+    duration: 0, tags: [], mood: null, aiAnalyzed: false,
+    blob: blob,
+  };
+
+  // get duration
+  await new Promise(res => {
+    const v = document.createElement('video');
+    v.src = url;
+    v.onloadedmetadata = () => { video.duration = v.duration; res(); };
+    v.onerror = res;
+  });
+
+  // store (store blob separately to avoid quota on large videos)
+  const storageVideo = { ...video, blobData: blob };
+  await putItem('videos', storageVideo);
+  state.videos.push(video);
+  renderSidebar();
+  renderVideos();
+  updateStorage();
+  toast(`"${video.name}" added!`, 'success');
+
+  // auto AI tagging in background
+  autoTagVideo(video.id);
+}
+
+function generateThumbnail(url, type) {
+  return new Promise(resolve => {
+    const v = document.createElement('video');
+    v.src = url; v.muted = true; v.currentTime = 1;
+    v.onloadeddata = () => {
+      v.currentTime = Math.min(1, v.duration * 0.1);
+    };
+    v.onseeked = () => {
+      const c = document.createElement('canvas');
+      c.width = 320; c.height = 180;
+      c.getContext('2d').drawImage(v, 0, 0, 320, 180);
+      resolve(c.toDataURL('image/jpeg', 0.7));
+    };
+    v.onerror = () => resolve('');
+  });
+}
+
+function getDominantColor(dataUrl) {
+  return new Promise(resolve => {
+    if (!dataUrl) return resolve('120,90,252');
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = 10; c.height = 10;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0, 10, 10);
+      const data = ctx.getImageData(0, 0, 10, 10).data;
+      let r=0,g=0,b=0,cnt=0;
+      for (let i=0;i<data.length;i+=4) {
+        r+=data[i]; g+=data[i+1]; b+=data[i+2]; cnt++;
+      }
+      resolve(`${Math.round(r/cnt)},${Math.round(g/cnt)},${Math.round(b/cnt)}`);
+    };
+    img.onerror = () => resolve('120,90,252');
+    img.src = dataUrl;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// RENDER VIDEOS
+// ═══════════════════════════════════════════════════════════
+function getFilteredVideos() {
+  let vids = [...state.videos];
+  const q = state.searchQuery.toLowerCase();
+  const sort = document.getElementById('sort-select').value;
+
+  if (state.currentFolder === 'trash') {
+    vids = vids.filter(v => v.trashed);
+  } else if (state.currentFolder === 'recent') {
+    const week = Date.now() - 7 * 86400000;
+    vids = vids.filter(v => !v.trashed && v.createdAt > week);
+  } else if (state.currentFolder === 'all') {
+    vids = vids.filter(v => !v.trashed);
+  } else {
+    vids = vids.filter(v => !v.trashed && v.folderId === state.currentFolder);
+  }
+
+  if (q) {
+    vids = vids.filter(v =>
+      v.name.toLowerCase().includes(q) ||
+      (v.tags || []).some(t => t.toLowerCase().includes(q))
+    );
+  }
+
+  if (sort === 'newest') vids.sort((a,b) => b.createdAt - a.createdAt);
+  else if (sort === 'oldest') vids.sort((a,b) => a.createdAt - b.createdAt);
+  else if (sort === 'name') vids.sort((a,b) => a.name.localeCompare(b.name));
+  else if (sort === 'size') vids.sort((a,b) => (b.size||0) - (a.size||0));
+
+  return vids;
+}
+
+function renderVideos() {
+  const grid = document.getElementById('video-grid');
+  const vids = getFilteredVideos();
+  grid.className = `video-grid ${state.view} fade-in`;
+  grid.innerHTML = '';
+
+  if (!vids.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <div class="empty-icon">🎬</div>
+      <div class="empty-title">${state.currentFolder==='trash'?'Trash is empty':'No videos yet'}</div>
+      <div class="empty-sub">${state.currentFolder==='trash'?'':state.searchQuery?'No results found':'Upload your first video!'}</div>
+    </div>`;
+    return;
+  }
+
+  vids.forEach(v => {
+    const card = document.createElement('div');
+    card.className = 'video-card';
+    card.dataset.id = v.id;
+    card.draggable = true;
+
+    card.ondragstart = () => { state.dragVideoId = v.id; card.classList.add('dragging'); };
+    card.ondragend = () => card.classList.remove('dragging');
+    card.oncontextmenu = e => { e.preventDefault(); showCtxMenu(e, v.id); };
+    card.onmouseenter = () => setAmbientColor(v.dominantColor);
+    card.onmouseleave = () => resetAmbientColor();
+
+    const dur = formatDuration(v.duration);
+    const size = formatSize(v.size);
+    const tagsHtml = (v.tags||[]).slice(0,3).map(t=>`<span class="tag tag-ai">${t}</span>`).join('');
+    const moodHtml = v.mood ? `<span class="tag tag-mood">${v.mood}</span>` : '';
+
+    card.innerHTML = `
+      <div class="thumb-wrap">
+        ${v.thumbnail ? `<img class="thumb-canvas" src="${v.thumbnail}" alt="">` : '<div style="background:#111;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#444;font-size:24px">🎬</div>'}
+        <div class="play-overlay"><div class="play-btn">▶</div></div>
+        ${dur ? `<span class="duration-badge">${dur}</span>` : ''}
+        <button class="video-menu-btn" onclick="event.stopPropagation();showCtxMenu(event,${JSON.stringify(v.id)})">⋯</button>
+      </div>
+      <div class="card-info">
+        <div class="card-title">${v.name}</div>
+        <div class="card-meta"><span>${size}</span><span>${new Date(v.createdAt).toLocaleDateString()}</span></div>
+        ${tagsHtml || moodHtml ? `<div class="card-tags">${tagsHtml}${moodHtml}</div>` : ''}
+      </div>
+    `;
+    card.onclick = () => openVideoDetail(v.id);
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// VIDEO DETAIL
+// ═══════════════════════════════════════════════════════════
+async function openVideoDetail(id) {
+  const v = state.videos.find(x=>x.id===id);
+  if (!v) return;
+  state.selectedVideo = id;
+
+  document.getElementById('detail-title').textContent = v.name;
+  const player = document.getElementById('detail-player');
+
+  // get blob from db
+  const stored = await getItem('videos', id);
+  if (stored && stored.blobData) {
+    player.src = URL.createObjectURL(stored.blobData);
+  }
+
+  document.getElementById('detail-info').innerHTML = `
+    <span>📦 ${formatSize(v.size)}</span>
+    <span>⏱ ${formatDuration(v.duration)}</span>
+    <span>📅 ${new Date(v.createdAt).toLocaleDateString()}</span>
+    <span>📂 ${v.folderId ? state.folders.find(f=>f.id===v.folderId)?.name||'Unknown' : 'All Videos'}</span>
+  `;
+
+  const tagsEl = document.getElementById('detail-tags');
+  tagsEl.innerHTML = (v.tags||[]).map(t=>`<span class="tag tag-ai">${t}</span>`).join('') || '<span style="color:var(--muted);font-size:12px">No tags yet</span>';
+
+  openModal('video-detail-overlay');
+
+  // run AI analysis
+  runAIAnalysis(id);
+}
+
+async function runAIAnalysis(id) {
+  const v = state.videos.find(x=>x.id===id);
+  if (!v) return;
+  const aiEl = document.getElementById('ai-analysis-content');
+  aiEl.innerHTML = '<div class="ai-loading"><div class="ai-dot"></div> AI is analyzing your video...</div>';
+  document.getElementById('ai-mood-section').style.display = 'none';
+
+  try {
+    const prompt = `You are an AI video analyzer. Given this video info:
+Name: "${v.name}"
+Duration: ${Math.round(v.duration)}s
+File type: ${v.type}
+Size: ${formatSize(v.size)}
+
+Please provide:
+1. 5 relevant tags (comma separated, no #, concise)
+2. Detected mood (one word: energetic/calm/dramatic/fun/educational/inspiring/dark/romantic)
+3. Category (one of: Music, Tutorial, Vlog, Gaming, Short Film, Documentary, Comedy, Sport, Other)
+4. A 2-sentence description of what this video likely contains based on its name and metadata.
+
+Respond ONLY in this exact JSON format:
+{"tags":["tag1","tag2","tag3","tag4","tag5"],"mood":"calm","category":"Tutorial","description":"Your description here.","moodScore":0.7}
+moodScore is 0-1 where 0=very negative/dark, 1=very positive/energetic`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const raw = data.content?.map(x=>x.text||'').join('') || '';
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+
+    // update video
+    v.tags = parsed.tags || [];
+    v.mood = parsed.mood;
+    v.category = parsed.category;
+    v.aiAnalyzed = true;
+    await putItem('videos', { ...(await getItem('videos', id)), tags: v.tags, mood: v.mood, category: v.category, aiAnalyzed: true });
+
+    // render results
+    aiEl.innerHTML = `
+      <p style="font-size:13px;color:var(--text);line-height:1.6;">${parsed.description}</p>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="tag tag-ai">📂 ${parsed.category}</span>
+        <span class="tag tag-mood">🎭 ${parsed.mood}</span>
+      </div>
+    `;
+
+    // mood bar
+    const moodColors = {energetic:'#fc5c7d',calm:'#6a9fb5',dramatic:'#7c5cfc',fun:'#ffd700',educational:'#40c080',inspiring:'#e040fb',dark:'#555',romantic:'#ff6b9d'};
+    const moodEl = document.getElementById('ai-mood-section');
+    moodEl.style.display = 'block';
+    document.getElementById('ai-mood-bar').style.background = `linear-gradient(90deg, ${moodColors[parsed.mood]||'#7c5cfc'} ${Math.round(parsed.moodScore*100)}%, var(--border) 0%)`;
+    document.getElementById('ai-mood-label').textContent = `Mood score: ${Math.round(parsed.moodScore*100)}% — ${parsed.mood}`;
+
+    // update tags display
+    document.getElementById('detail-tags').innerHTML = v.tags.map(t=>`<span class="tag tag-ai">${t}</span>`).join('');
+    renderVideos();
+    renderSidebar();
+
+  } catch (err) {
+    aiEl.innerHTML = `<span style="color:var(--muted);font-size:12px">AI analysis unavailable — check your Anthropic API key setup.</span>`;
+  }
+}
+
+async function autoTagVideo(id) {
+  // run silently in background
+  const v = state.videos.find(x=>x.id===id);
+  if (!v || v.aiAnalyzed) return;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 300,
+        messages: [{ role: 'user', content: `Video name: "${v.name}". Give 5 tags and one mood word. JSON only: {"tags":["a","b","c","d","e"],"mood":"calm","category":"Other"}` }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content?.map(x=>x.text||'').join('');
+    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
+    v.tags = parsed.tags||[]; v.mood = parsed.mood; v.aiAnalyzed = true;
+    const stored = await getItem('videos', id);
+    await putItem('videos', {...stored, tags:v.tags, mood:v.mood, aiAnalyzed:true});
+    renderVideos();
+  } catch(e){}
+}
+
+function closeVideoDetail() {
+  const player = document.getElementById('detail-player');
+  player.pause();
+  URL.revokeObjectURL(player.src);
+  player.src = '';
+  closeModal('video-detail-overlay');
+}
+
+function setSpeed(s) {
+  document.getElementById('detail-player').playbackRate = s;
+  toast(`Speed: ${s}x`, 'info');
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONTEXT MENU
+// ═══════════════════════════════════════════════════════════
+function showCtxMenu(e, id) {
+  state.ctxVideoId = id;
+  const menu = document.getElementById('ctx-menu');
+  menu.classList.remove('hidden');
+  const x = Math.min(e.clientX, window.innerWidth - 180);
+  const y = Math.min(e.clientY, window.innerHeight - 200);
+  menu.style.left = x + 'px';
+  menu.style.top = y + 'px';
+}
+
+document.addEventListener('click', () => document.getElementById('ctx-menu').classList.add('hidden'));
+
+function ctxPlay() { if(state.ctxVideoId) openVideoDetail(state.ctxVideoId); }
+function ctxRename() { if(state.ctxVideoId) { const v=state.videos.find(x=>x.id===state.ctxVideoId); if(v){document.getElementById('rename-video-input').value=v.name; openModal('rename-video-overlay'); setTimeout(()=>document.getElementById('rename-video-input').focus(),100);}}}
+function ctxAIAnalyze() { if(state.ctxVideoId) openVideoDetail(state.ctxVideoId); }
+
+function ctxMove() {
+  if (!state.ctxVideoId) return;
+  const sel = document.getElementById('move-folder-select');
+  sel.innerHTML = `<option value="">— No Folder —</option>` +
+    state.folders.map(f=>`<option value="${f.id}">${f.icon} ${f.name}</option>`).join('');
+  openModal('move-video-overlay');
+}
+
+async function moveVideo() {
+  const folderId = document.getElementById('move-folder-select').value || null;
+  const v = state.videos.find(x=>x.id===state.ctxVideoId);
+  if (!v) return;
+  v.folderId = folderId;
+  const stored = await getItem('videos', v.id);
+  await putItem('videos', { ...stored, folderId });
+  renderSidebar();
+  renderVideos();
+  closeModal('move-video-overlay');
+  toast('Video moved!', 'success');
+}
+
+async function dropVideoOnFolder(folderId) {
+  if (!state.dragVideoId) return;
+  const v = state.videos.find(x=>x.id===state.dragVideoId);
+  if (!v) return;
+  v.folderId = folderId;
+  const stored = await getItem('videos', v.id);
+  await putItem('videos', { ...stored, folderId });
+  renderSidebar();
+  renderVideos();
+  toast(`Moved to ${state.folders.find(f=>f.id===folderId)?.name||'folder'}!`, 'success');
+  state.dragVideoId = null;
+}
+
+async function ctxTrash() {
+  const v = state.videos.find(x=>x.id===state.ctxVideoId);
+  if (!v) return;
+  v.trashed = true;
+  const stored = await getItem('videos', v.id);
+  await putItem('videos', { ...stored, trashed: true });
+  renderSidebar();
+  renderVideos();
+  toast('Moved to Trash.', 'info');
+}
+
+async function renameVideo() {
+  const name = document.getElementById('rename-video-input').value.trim();
+  if (!name) return;
+  const v = state.videos.find(x=>x.id===state.ctxVideoId);
+  if (!v) return;
+  v.name = name;
+  const stored = await getItem('videos', v.id);
+  await putItem('videos', { ...stored, name });
+  renderVideos();
+  closeModal('rename-video-overlay');
+  toast('Video renamed!', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+// AMBIENT COLOR
+// ═══════════════════════════════════════════════════════════
+let ambientTimeout;
+function setAmbientColor(color) {
+  clearTimeout(ambientTimeout);
+  if (!color) return;
+  document.documentElement.style.setProperty('--ambient', color);
+}
+function resetAmbientColor() {
+  ambientTimeout = setTimeout(() => {
+    document.documentElement.style.setProperty('--ambient', '120,90,252');
+  }, 300);
+}
+
+// ═══════════════════════════════════════════════════════════
+// AI SEARCH
+// ═══════════════════════════════════════════════════════════
+let searchTimeout;
+document.getElementById('search-input').addEventListener('input', e => {
+  const q = e.target.value.trim();
+  state.searchQuery = q;
+  clearTimeout(searchTimeout);
+
+  // check if it looks like a natural language query
+  if (q.length > 15 && (q.includes('find') || q.includes('show') || q.includes('?') || q.includes('which') || q.includes('what'))) {
+    searchTimeout = setTimeout(() => aiNaturalSearch(q), 800);
+  } else {
+    renderVideos();
+  }
+});
+
+async function aiNaturalSearch(query) {
+  const videoList = state.videos.filter(v=>!v.trashed).map(v=>({name:v.name,tags:v.tags,mood:v.mood,category:v.category}));
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 500,
+        messages: [{
+          role: 'user',
+          content: `User query: "${query}"\nVideos: ${JSON.stringify(videoList)}\nFind matching videos and explain why. Keep it short (2-3 sentences). Also list matching video names as JSON array under key "matches". Respond as JSON: {"explanation":"...","matches":["name1","name2"]}`
+        }]
+      })
+    });
+    const data = await res.json();
+    const raw = data.content?.map(x=>x.text||'').join('');
+    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
+
+    document.getElementById('ai-search-result').innerHTML = `
+      <p style="margin-bottom:12px;">${parsed.explanation}</p>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        ${(parsed.matches||[]).map(m=>`<div style="background:var(--card);padding:8px 12px;border-radius:8px;font-size:13px;cursor:pointer" onclick="state.searchQuery='${m}';renderVideos();closeModal('ai-search-overlay')">${m}</div>`).join('')}
+      </div>
+    `;
+    openModal('ai-search-overlay');
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════════
+// DRAG AND DROP UPLOAD
+// ═══════════════════════════════════════════════════════════
+document.getElementById('main-content').addEventListener('dragover', e => e.preventDefault());
+document.getElementById('main-content').addEventListener('drop', async e => {
+  e.preventDefault();
+  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('video/'));
+  if (files.length) {
+    for (const f of files) await processVideoFile(f);
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  const active = document.activeElement.tagName;
+  if (active === 'INPUT' || active === 'TEXTAREA' || active === 'SELECT') return;
+
+  switch(e.key) {
+    case 'u': case 'U': triggerUpload(); break;
+    case 'n': case 'N': showNewFolderModal(); break;
+    case '/': e.preventDefault(); document.getElementById('search-input').focus(); break;
+    case 'v': case 'V': setView(state.view==='grid'?'list':'grid'); break;
+    case '?': showShortcuts(); break;
+    case 'Escape': closeAllModals(); closeVideoDetail(); break;
+    case '[': { const p=document.getElementById('detail-player'); if(p.src){p.playbackRate=Math.max(0.25,p.playbackRate-0.25); toast(`Speed: ${p.playbackRate}x`,'info');} break; }
+    case ']': { const p=document.getElementById('detail-player'); if(p.src){p.playbackRate=Math.min(4,p.playbackRate+0.25); toast(`Speed: ${p.playbackRate}x`,'info');} break; }
+    case 'Delete': if(state.ctxVideoId) ctxTrash(); break;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function closeAllModals() {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden'));
+}
+
+function setView(v) {
+  state.view = v;
+  document.getElementById('grid-btn').classList.toggle('active', v==='grid');
+  document.getElementById('list-btn').classList.toggle('active', v==='list');
+  renderVideos();
+}
+
+function showShortcuts() { openModal('shortcuts-overlay'); }
+
+function formatDuration(s) {
+  if (!s) return '';
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+function formatSize(b) {
+  if (!b) return '0 B';
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1073741824) return (b/1048576).toFixed(1) + ' MB';
+  return (b/1073741824).toFixed(1) + ' GB';
+}
+
+async function updateStorage() {
+  let total = 0;
+  for (const v of state.videos) total += (v.size||0);
+  const gb = total / 1073741824;
+  document.getElementById('storage-text').textContent = `${formatSize(total)} used`;
+  // IndexedDB quota estimation
+  if (navigator.storage && navigator.storage.estimate) {
+    const est = await navigator.storage.estimate();
+    const pct = Math.round((est.usage||0)/(est.quota||1)*100);
+    document.getElementById('storage-fill').style.width = Math.min(pct, 100) + '%';
+    document.getElementById('storage-text').textContent = `${formatSize(est.usage||0)} / ${formatSize(est.quota||0)}`;
+  }
+}
+
+function toast(msg, type='info') {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = { success:'✅', error:'❌', info:'ℹ️' };
+  t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => {
+    t.style.animation = 'slideOut 0.3s ease forwards';
+    setTimeout(() => t.remove(), 300);
+  }, 3000);
+}
+
+// ═══════════════════════════════════════════════════════════
+// TRASH EMPTY
+// ═══════════════════════════════════════════════════════════
+async function emptyTrash() {
+  const trashed = state.videos.filter(v=>v.trashed);
+  for (const v of trashed) { await deleteItem('videos', v.id); }
+  state.videos = state.videos.filter(v=>!v.trashed);
+  renderSidebar();
+  renderVideos();
+  updateStorage();
+  toast('Trash emptied!', 'info');
+}
+
+// THEME
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? '' : 'dark');
+  document.getElementById('theme-btn').textContent = isDark ? '🌙' : '☀️';
+  localStorage.setItem('vv-theme', isDark ? 'light' : 'dark');
+}
+function loadTheme() {
+  const saved = localStorage.getItem('vv-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved === 'dark' ? 'dark' : '');
+  document.getElementById('theme-btn').textContent = saved === 'dark' ? '☀️' : '🌙';
+}
+
+// Start
+loadTheme();
+init();
+</script>
+</body>
+</html>
