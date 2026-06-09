@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -201,6 +202,20 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 /* ANIMATIONS */
 .fade-in{animation:fadeIn 0.3s ease;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* BULK SELECT */
+.video-card.selected{border:2px solid var(--accent);background:rgba(124,92,252,0.08);}
+.video-card .select-check{position:absolute;top:8px;left:8px;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,0.7);background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:11px;opacity:0;transition:opacity 0.15s;cursor:pointer;z-index:2;}
+.video-card:hover .select-check{opacity:1;}
+.video-card.selected .select-check{opacity:1;background:var(--accent);border-color:var(--accent);color:#fff;}
+.bulk-bar{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,0.2);z-index:50;transition:transform 0.3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;}
+.bulk-bar.visible{transform:translateX(-50%) translateY(0);}
+.bulk-count{font-size:13px;font-weight:600;color:var(--accent);min-width:80px;}
+.bulk-divider{width:1px;height:20px;background:var(--border);}
+.bulk-btn{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);cursor:pointer;font-size:12px;font-weight:500;transition:all 0.15s;}
+.bulk-btn:hover{background:var(--card);}
+.bulk-btn.danger:hover{background:rgba(240,64,96,0.1);color:var(--danger);border-color:rgba(240,64,96,0.3);}
+.bulk-btn.close-btn{color:var(--muted);border:none;}
 </style>
 </head>
 <body>
@@ -267,14 +282,28 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <div class="content" id="main-content">
       <div class="section-header">
         <span class="section-title" id="section-title">All Videos</span>
-        <div class="view-toggle">
-          <button class="view-btn active" id="grid-btn" onclick="setView('grid')">⊞</button>
-          <button class="view-btn" id="list-btn" onclick="setView('list')">☰</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-ghost" id="select-all-btn" onclick="toggleSelectAll()" style="font-size:12px;padding:6px 10px;display:none;">☑ Select All</button>
+          <div class="view-toggle">
+            <button class="view-btn active" id="grid-btn" onclick="setView('grid')">⊞</button>
+            <button class="view-btn" id="list-btn" onclick="setView('list')">☰</button>
+          </div>
         </div>
       </div>
       <div class="video-grid fade-in" id="video-grid"></div>
     </div>
   </main>
+</div>
+
+<!-- BULK ACTION BAR -->
+<div class="bulk-bar" id="bulk-bar">
+  <span class="bulk-count" id="bulk-count">0 selected</span>
+  <div class="bulk-divider"></div>
+  <button class="bulk-btn" onclick="bulkMove()">📁 Move</button>
+  <button class="bulk-btn danger" onclick="bulkTrash()">🗑️ Trash</button>
+  <button class="bulk-btn danger" onclick="bulkDelete()">❌ Delete</button>
+  <div class="bulk-divider"></div>
+  <button class="bulk-btn close-btn" onclick="clearSelection()">✕ Deselect</button>
 </div>
 
 <!-- CONTEXT MENU -->
@@ -484,6 +513,7 @@ let state = {
   searchQuery: '',
   view: 'grid',
   selectedVideo: null,
+  selectedVideos: new Set(),
   renamingFolder: null,
   ctxVideoId: null,
   dragVideoId: null,
@@ -761,6 +791,7 @@ function renderVideos() {
 
     card.innerHTML = `
       <div class="thumb-wrap">
+        <div class="select-check" onclick="event.stopPropagation();toggleSelectVideo('${v.id}')">${state.selectedVideos.has(v.id)?'✓':''}</div>
         ${v.thumbnail ? `<img class="thumb-canvas" src="${v.thumbnail}" alt="">` : '<div style="background:#111;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#444;font-size:24px">🎬</div>'}
         <div class="play-overlay"><div class="play-btn">▶</div></div>
         ${dur ? `<span class="duration-badge">${dur}</span>` : ''}
@@ -772,9 +803,15 @@ function renderVideos() {
         ${tagsHtml || moodHtml ? `<div class="card-tags">${tagsHtml}${moodHtml}</div>` : ''}
       </div>
     `;
-    card.onclick = () => openVideoDetail(v.id);
+    if (state.selectedVideos.has(v.id)) card.classList.add('selected');
+    card.onclick = () => {
+      if (state.selectedVideos.size > 0) { toggleSelectVideo(v.id); return; }
+      openVideoDetail(v.id);
+    };
     grid.appendChild(card);
   });
+  // show select-all btn if videos exist
+  document.getElementById('select-all-btn').style.display = vids.length ? 'flex' : 'none';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -948,15 +985,20 @@ function ctxMove() {
 
 async function moveVideo() {
   const folderId = document.getElementById('move-folder-select').value || null;
-  const v = state.videos.find(x=>x.id===state.ctxVideoId);
-  if (!v) return;
-  v.folderId = folderId;
-  const stored = await getItem('videos', v.id);
-  await putItem('videos', { ...stored, folderId });
+  const isBulk = document.getElementById('move-video-overlay').dataset.bulk === '1';
+  const ids = isBulk ? [...state.selectedVideos] : [state.ctxVideoId];
+  for (const id of ids) {
+    const v = state.videos.find(x=>x.id===id);
+    if (!v) continue;
+    v.folderId = folderId;
+    const stored = await getItem('videos', id);
+    await putItem('videos', { ...stored, folderId });
+  }
+  if (isBulk) { state.selectedVideos.clear(); updateBulkBar(); document.getElementById('move-video-overlay').dataset.bulk=''; }
   renderSidebar();
   renderVideos();
   closeModal('move-video-overlay');
-  toast('Video moved!', 'success');
+  toast(`${ids.length} video(s) moved!`, 'success');
 }
 
 async function dropVideoOnFolder(folderId) {
@@ -1159,6 +1201,84 @@ async function emptyTrash() {
   renderVideos();
   updateStorage();
   toast('Trash emptied!', 'info');
+}
+
+// ═══════════════════════════════════════════════════════════
+// BULK SELECTION
+// ═══════════════════════════════════════════════════════════
+function toggleSelectVideo(id) {
+  if (state.selectedVideos.has(id)) state.selectedVideos.delete(id);
+  else state.selectedVideos.add(id);
+  updateBulkBar();
+  renderVideos();
+}
+
+function toggleSelectAll() {
+  const vids = getFilteredVideos();
+  if (state.selectedVideos.size === vids.length) {
+    state.selectedVideos.clear();
+  } else {
+    vids.forEach(v => state.selectedVideos.add(v.id));
+  }
+  updateBulkBar();
+  renderVideos();
+}
+
+function clearSelection() {
+  state.selectedVideos.clear();
+  updateBulkBar();
+  renderVideos();
+}
+
+function updateBulkBar() {
+  const bar = document.getElementById('bulk-bar');
+  const cnt = state.selectedVideos.size;
+  document.getElementById('bulk-count').textContent = `${cnt} selected`;
+  bar.classList.toggle('visible', cnt > 0);
+  const btn = document.getElementById('select-all-btn');
+  const total = getFilteredVideos().length;
+  btn.textContent = state.selectedVideos.size === total ? '☐ Deselect All' : '☑ Select All';
+}
+
+async function bulkTrash() {
+  if (!state.selectedVideos.size) return;
+  for (const id of state.selectedVideos) {
+    const v = state.videos.find(x=>x.id===id);
+    if (!v) continue;
+    v.trashed = true;
+    const stored = await getItem('videos', id);
+    await putItem('videos', { ...stored, trashed: true });
+  }
+  toast(`${state.selectedVideos.size} videos moved to Trash!`, 'info');
+  state.selectedVideos.clear();
+  updateBulkBar();
+  renderSidebar();
+  renderVideos();
+}
+
+async function bulkDelete() {
+  if (!state.selectedVideos.size) return;
+  if (!confirm(`Permanently delete ${state.selectedVideos.size} videos? Cannot be undone!`)) return;
+  for (const id of state.selectedVideos) {
+    await deleteItem('videos', id);
+    state.videos = state.videos.filter(v=>v.id!==id);
+  }
+  toast(`${state.selectedVideos.size} videos deleted!`, 'info');
+  state.selectedVideos.clear();
+  updateBulkBar();
+  renderSidebar();
+  renderVideos();
+  updateStorage();
+}
+
+function bulkMove() {
+  if (!state.selectedVideos.size) return;
+  const sel = document.getElementById('move-folder-select');
+  sel.innerHTML = `<option value="">— No Folder —</option>` +
+    state.folders.map(f=>`<option value="${f.id}">${f.icon} ${f.name}</option>`).join('');
+  // override moveVideo to handle bulk
+  document.getElementById('move-video-overlay').dataset.bulk = '1';
+  openModal('move-video-overlay');
 }
 
 // THEME
